@@ -1,0 +1,448 @@
+<head>
+  <title>Peeking Blackjack</title>
+  <script src="plugins/main.js"></script>
+  <script src="grader-all.js"></script>
+</head>
+
+<body onload="onLoad('blackjack', '<a href=mailto:gillespl@cs.stanford.edu>Lauren Gillespie<a>', '10/11/2021', 'https://edstem.org/us/courses/13379/discussion/704176')">
+
+<div id="assignmentHeader"></div>
+
+<p>
+<img class="float-right" src="blackjack.jpg" style="width:260px;margin-left:10px"/>
+</p>
+
+<p>
+The search algorithms explored in the previous assignment work great when you
+know exactly the results of your actions.  Unfortunately, the real world is
+not so predictable.  One of the key aspects of an effective AI is the ability
+to reason in the face of uncertainty.
+</p>
+
+<p>
+Markov decision processes (MDPs) can be used to formalize uncertain situations.
+In this homework, you will implement algorithms to find the optimal policy in these situations.
+You will then formalize a modified version of Blackjack as an MDP, and apply your algorithm
+to find the optimal policy. Finally, you will explore using MDPs for modeling a real-world scenario, specifically rising sea levels.
+</p>
+
+<!------------------------------------------------------------>
+<h2 class="problemTitle">Problem 1: Value Iteration</h2>
+
+<p>
+In this problem, you will perform the value iteration updates manually on a
+very basic game just to solidify your intuitions about solving MDPs.
+The set of possible states in this game is $\mathcal{S} = \{-2, -1, 0, +1, +2\}$ and the set of possible actions is $\mathcal{A} = \{a_1, a_2\}$.  The initial state is $0$ and there are two terminal states, $-2$ and $+2$. Recall that the transition function $\mathcal{T}: \mathcal{S} \times \mathcal{A} \rightarrow \Delta(\mathcal{S})$ encodes the probability of transitioning to a next state $s'$ after being in state $s$ and taking action $a$ as $\mathcal{T}(s'|s,a)$. In this MDP, the transition dynamics are given as follows:
+<p>
+$\forall i \in \{-1, 0, 1\} \subset \mathcal{S}$,
+<ul>
+         <li> $\mathcal{T}(i-1 | i, a_1) = 0.8$ and $\mathcal{T}(i+1 | i, a_1) = 0.2$
+         <li> $\mathcal{T}(i-1 | i, a_2) = 0.7$ and $\mathcal{T}(i+1 | i, a_2) = 0.3$
+</ul>
+Think of this MDP as a chain formed by states $\{-2, -1, 0, +1, +2\}$. In words, action $a_1$ has a 80% chance of moving the agent backwards in the chain and a 20% chance of moving the agent forward. Similarly, action $a_2$ has a 70% of sending the agent backwards and a 30% chance of moving the agent forward. We will use a discount factor $\gamma = 1$. <br>
+The reward function for this MDP is $\mathcal{R}(s,a,s') = \begin{cases} 10 & s' = -2 \\ 50 & s' = +2 \\ -5 & \text{otherwise} \end{cases}$
+
+</p>
+
+<ol class="problem">
+
+<li class="writeup" id="1a">
+What is the value of $V^\star_i(s)$ for each state in $\mathcal{S}$ after each iteration $i = \{0, 1, 2\}$ of Value Iteration? Please write down the values from all iterations. Recall that $\forall s \in \mathcal{S}$, $V^\star_0(s) = 0$ and, for any terminal state $s_\text{terminal}$, $V^\star(s_\text{terminal}) = 0$. In other words, all values are $0$ after iteration 0 and terminate states always have a value of $0$.
+<div class='expected'>
+    The $V^\star_i(s)$ of all 5 states after each iteration. In total, 15 values should be reported. 
+</div>
+
+
+<li class="writeup" id="1b">
+Using $V^\star_2(\cdot)$, what is the corresponding optimal policy $\pi^\star$ for all non-terminal states?
+<div class = 'expected'>
+    A few state action pairs to express the optimal policy.
+</div>
+
+
+</ol>
+
+<!------------------------------------------------------------>
+<h2 class="problemTitle">Problem 2: Transforming MDPs</h2>
+
+<p>
+Equipped with an understanding of a basic algorithm for computing optimal value
+functions in MDPs, let's gain intuition about the dynamics of MDPs which either
+carry some special structure, or are defined with respect to a different MDP.
+</p>
+
+<ol class="problem">
+
+<li class="writeup" id="2a">
+Suppose we have an MDP with states $\text{States}$ and a discount factor $\gamma &lt; 1$,
+but we have an MDP solver that can only solve MDPs with discount factor of $1$.
+How can we leverage the MDP solver to solve the original MDP?
+<p>
+Let us define a new MDP with states $\text{States}' = \text{States} \cup \{ o \}$,
+where $o$ is a new state.  Let's use the same actions ($\text{Actions}'(s) = \text{Actions}(s)$),
+but we need to keep the discount $\gamma' = 1$.
+Your job is to define new transition probabilities $\mathcal{T}'(s' | s, a)$ and rewards $\text{Reward}'(s, a, s')$
+in terms of the old MDP
+such that the optimal values $V_\text{opt}(s)$ for all $s \in \text{States}$
+are equal under the original MDP and the new MDP.</p>
+<i>Hint: If you're not sure how to approach this problem, go back to Dorsa's notes from the first MDP lecture and read closely the slides on convergence, toward the end of the deck.</i>
+
+<div class='expected'>
+    A few transition probabilities and reward functions written in mathematical expressions, followed by a short proof to show that the two 
+    optimal values are equal. Try to use the same symbols as the question. 
+</div>
+
+</li>
+
+</ol>
+
+<!------------------------------------------------------------>
+<h2 class="problemTitle">Problem 3: Peeking Blackjack</h2>
+
+<p>
+Now that we have gotten a bit of practice with general-purpose MDP algorithms, let's use them to play (a modified version of) Blackjack.
+For this problem, you will be creating an MDP to describe states, actions, and rewards in this game. More specifically, after reading through the description of the
+state representation and actions of our Blackjack game below, you will implement the transition and reward function of the Blackjack MDP inside <code>succAndProbReward()</code>.
+</p>
+
+<p>
+For our version of Blackjack, the deck can contain an
+arbitrary collection of cards with different face values.  At the start of the game,
+    the deck contains the same number of each cards of each face value; we call this number
+    the 'multiplicity'.  For example, a standard deck of 52 cards would have face values $[1, 2, \ldots,
+13]$ and multiplicity 4.  You could also have a deck with face values
+$[1,5,20]$; if we used multiplicity 10 in this case, there would be 30 cards in total (10 each of 1s, 5s, and 20s).
+The deck is shuffled, meaning that each permutation of the cards is equally likely.
+</p>
+
+<p>
+<img class="float-right" src="blackjack_rule.png" style="width:550px;margin-left:10px"/>
+</p>
+
+<p>
+The game occurs in a sequence of rounds.
+In each round, the player has three actions available to her:
+<ul>
+  <li> $a_\text{take}$ - Take the next card from the top of the deck.
+  <li> $a_\text{peek}$ - Peek at the next card on the top of the deck.
+  <li> $a_\text{quit}$ - Stop taking any more cards.
+</ul>
+
+</p>
+
+<p>
+In this problem, your state $s$ will be represented as a 3-element tuple:
+<blockquote>
+  <code>(totalCardValueInHand, nextCardIndexIfPeeked, deckCardCounts)</code>
+</blockquote>
+As an example, assume the deck has card values $[1, 2, 3]$ with multiplicity 2,
+and the threshold is 4.
+Initially, the player has no cards, so her total is 0;
+this corresponds to state <code>(0, None, (2, 2, 2))</code>.
+<ul>
+  <li>For $a_\text{take}$, the three possible successor states (each with equal probability of $1/3$) are:
+<blockquote>
+  <code>(1, None, (1, 2, 2))</code><br>
+  <code>(2, None, (2, 1, 2))</code><br>
+  <code>(3, None, (2, 2, 1))</code><br>
+</blockquote>
+Three successor states have equal probabilities because each face value had the same amount of cards in the deck.
+In other words, a random card that is available in the deck is drawn and its corresponding count in the deck is then decremented. Remember that <code>succAndProbReward()</code> will expect you return all three of the successor states shown above. Note that $\mathcal{R}(s, a_\text{take}, s') = 0, \forall s,s' \in \mathcal{S}$. Even though the agent now has a card in her hand for which she may receive a reward at the end of the game, the reward is not actually granted until the game ends (see termination conditions below).
+</p>
+
+<p>
+<li>For $a_\text{peek}$, the three possible successor states are:
+<blockquote>
+  <code>(0, 0, (2, 2, 2))</code><br>
+  <code>(0, 1, (2, 2, 2))</code><br>
+  <code>(0, 2, (2, 2, 2))</code><br>
+</blockquote>
+  Note that it is not possible to peek twice in a row; if the player peeks twice in a row, then <code>succAndProbReward()</code> should return <code>[]</code>. Additionally, $\mathcal{R}(s, a_\text{peek}, s') = -\text{peekCost}, \forall s,s' \in \mathcal{S}$. That is, the agent will receive an immediate reward of <code>-peekCost</code> for reaching any of these states. <br>
+    Things to remember about the states after taking $a_\text{peek}$:
+    <ul>
+        <li>From <code>(0, 0, (2, 2, 2))</code>, taking a card will lead to the state <code>(1, None, (1, 2, 2))</code> deterministically (that is, with probability 1.0).</li>
+        <li>
+            The second element of the state tuple is not the face value of the card that will be drawn next, but the
+            index into the deck (the third element of the state tuple) of the card that will be drawn next.  In other words,
+            the second element will always be between 0 and <code>len(deckCardCounts)-1</code>, inclusive.
+        </li>
+    </ul>
+</li>
+    <li>
+        For $a_\text{quit}$, the resulting state will be <code>(0, None, None)</code>.
+        (Remember that setting the deck to <code>None</code> signifies the end of the game.)
+    </li>
+</ul>
+</p>
+
+<p>
+The game continues until one of the following termination conditions becomes true:
+<ul>
+   <li>The player chooses $a_\text{quit}$, in which case her reward is the sum of the face values of the cards in her hand.
+   <li>The player chooses $a_\text{take}$ and "goes bust".  This means that the sum of the face values
+    of the cards in her hand is strictly greater than the threshold specified at the start
+    of the game.  If this happens, her reward is 0.
+   <li>The deck runs out of cards, in which case it is as if she selects $a_\text{quit}$, and she
+gets a reward which is the sum of the cards in her hand. <span style="font-style: italic;">
+    Make sure that if you take the last card and go bust, then the reward becomes 0 not
+    the sum of values of cards.
+    </span>
+</ul>
+</p>
+
+As another example with our deck of $[1,2,3]$ and multiplicity 1, let's say the player's current state is <code>(3, None, (1, 1, 0))</code>, and the threshold remains 4.
+<ul>
+  <li>For $a_\text{quit}$, the successor state will be <code>(3, None, None)</code>.</li>
+  <li>For $a_\text{take}$, the successor states are <code>(3 + 1, None, (0, 1, 0))</code> or <code>(3 + 2, None, None)</code>. Each has a probability of $1/2$ since 2 cards remain in the deck.
+Note that in the second successor state, the deck is set to <code>None</code> to signify the game ended with a bust.
+You should also set the deck to <code>None</code> if the deck runs out of cards.</li>
+</ul>
+
+<ol class="problem">
+
+<li class="code" id="3a">
+Implement the game of Blackjack as an MDP by filling out the
+<code>succAndProbReward()</code> function of class <code>BlackjackMDP</code>.
+Note: if you are experiencing TimeOut, it's very likely due to incorrect implementations instead of optimization related issues. Also be careful with numbers in if conditions. 0 is equivalent to False in Python and can potentially cause if statements to not execute as expected.
+</li>
+
+</ol>
+
+<!------------------------------------------------------------>
+<h2 class="problemTitle">Problem 4: Learning to Play Blackjack</h2>
+
+<p>
+So far, we've seen how MDP algorithms can take an MDP which describes the full
+dynamics of the game and return an optimal policy.  But suppose you go into
+a casino, and no one tells you the rewards or the transitions.
+We will see how reinforcement learning can allow you to play the game
+and learn its rules & strategy at the same time!
+</p>
+
+<ol class="problem">
+
+<li class="code" id="4a">
+You will first implement a generic Q-learning algorithm <code>QLearningAlgorithm</code>,
+which is an instance of an <code>RLAlgorithm</code>.  As discussed in class,
+reinforcement learning algorithms are capable of executing a policy while
+simultaneously improving that policy.  Look in <code>simulate()</code>, in
+<code>util.py</code> to see how the <code>RLAlgorithm</code> will be used.  In
+short, your <code>QLearningAlgorithm</code> will be run in a simulation of the MDP, and will
+alternately be asked for an action to perform in a given state (<code>QLearningAlgorithm.getAction</code>), and then be
+informed of the result of that action (<code>QLearningAlgorithm.incorporateFeedback</code>),
+so that it may learn better actions to perform in the future.
+</p>
+
+<p>
+We are using Q-learning with function approximation,
+which means $\hat{Q}^\star(s, a) = \mathbb w \cdot \phi(s, a)$,
+where in code, $\mathbb w$ is <code>self.weights</code>, $\phi$ is the <code>featureExtractor</code> function,
+and $\hat{Q}^\star$ is <code>self.getQ</code>.
+<p>
+We have implemented <code>QLearningAlgorithm.getAction</code> as a simple $\epsilon$-greedy policy.
+Your job is to implement <code>QLearningAlgorithm.incorporateFeedback()</code>,
+which should take an $(s, a, r, s')$ tuple and update <code>self.weights</code>
+according to the standard Q-learning update.
+</p>
+</li>
+
+<li class="writeup" id="4b">
+This function simulates using your Q-learning code and the <code>identityFeatureExtractor()</code> on 1) a small MDP and 2) a large MDP, each with 30000 trials. For the small MDP, how does the Q-learning policy compare with a policy learned by value iteration (i.e., for how many states do they produce a different action)?  We have provided a function in the grader <code>4b-helper</code> which does this for you.
+<br>
+<br>
+Now, for the large MDP, how does the policy learned in this case compare to the policy learned by value iteration? What went wrong?
+<div class="expected">
+    A sentence explaining whether Q-learning is better or worse than ValueIteration on the small MDP. A sentence explaining whether Q-learning is better or worse than ValueIteration on the large MDP. 2-3 sentences describing why you think this behavior occurred.
+</div>
+
+</li>
+
+<li class="code" id="4c">
+To address the problems explored in the previous exercise, let's incorporate some
+domain knowledge to improve generalization.  This way, the algorithm can use
+what it has learned about some states to improve its prediction performance on
+other states. Implement <code>blackjackFeatureExtractor</code> as described in the code comments.
+Using this feature extractor, you should be able to get pretty close to the
+optimum values on the <code>largeMDP</code>. Note that the policies are not necessarily the same.
+</li>
+
+<li class="writeup" id="4d">
+Sometimes, we might reasonably wonder how an optimal policy learned for one MDP
+    might perform if applied to another MDP with similar structure but slightly
+    different characteristics.  For example, imagine that you created an MDP to
+    choose an optimal strategy for playing "traditional" blackjack, with a standard
+    card deck and a threshold of 21.  You're living it up in Vegas
+    every weekend, but the casinos get wise to your approach and decide to make
+    a change to the game to disrupt your strategy: going forward, the threshold
+    for the blackjack tables is 17 instead of 21.  If you continued playing the
+    modified game with your original policy, how well would you do?  (This is just
+    a hypothetical example; we won't look specifically at the blackjack game in
+    this problem.)
+<br>
+<br>
+We have provided a function in the grader <code>4d-helper</code> which does the following:
+(1) First, the function runs value iteration on the <code>originalMDP</code> to compute an optimal policy for that MDP. Then, the optimal policy for <code>originalMDP</code> is fixed and simulated on <code>newThresholdMDP</code>.
+(2) Then, the function simulates Q-learning directly on <code>newThresholdMDP</code> with <code>blackjackFeatureExtractor</code> and the default exploration probability.
+What is the expected (average) rewards from the simulation in (1)? What is the expected (average) rewards under the new Q-learning policy in (2)? Provide some explanation for how the rewards compare, and why they are different.
+    
+
+<div class="expected">
+    One sentence giving the approximated expected rewards for the transferred originalMDP and the directly learned Q-learning policy on the <code>modifiedMDP</code> and which policy is better. 2-3 sentences explaining why you think the one policy is better than the other.
+</div>
+
+
+</li>
+
+</ol>
+
+
+<!------------------------------------------------------------>
+<h2 class="problemTitle">Problem 5: Modeling Sea Level Rise</h2>
+
+<p>
+Sometimes the skills we learn by playing games can serve us well in real life. In this assignment, 
+you’ve created a MDP that can learn an effective policy for Blackjack.  
+Now let’s see how an MDP can help us make decisions in a scenario with much higher stakes: 
+ climate change mitigation strategy <a href="#fn-1">[1]</a>. 
+  Climate change can cause sea level rise, higher tides, more frequent storms, and other events that can damage a coastal city. 
+  Cities want to build infrastructure to protect their citizens, such as seawalls or landscaping that can capture storm surge, but have limited budgets.
+  For this problem, we have implemented an MDP <code>SeaLevelRiseMDP</code> in <code>submission.py</code> that models how a coastal
+city government adapts to rising sea levels over the course of multiple decades. There are 2 actions available to the 
+government at each timestep:
+<ul>
+<li>$a_{Invest}$ - Invest in infrastructure during this budget cycle </li>
+<li>$a_{Wait}$ - Hold off in investing in infrastructure and save your surplus budget </li>
+</ul>
+<br>
+Every simulation starts out in the year <b>2000</b> and with an initial sea level of <b>0</b> (in centimeters). The initial amount of money (in millions of USD), initial amount of infrastructure (unitless), and number of years to run the simulation for are parameters to the model. Every <b>10 years</b>, the city government gets a chance to make an infrastructure decision. If the city government <i>chooses to invest</i> in infrastructure for that 10 year cycle, then <b>the current infrastructure state is incremented by 3</b> and <b>the current budget decreases by $2 mil</b>. If the city government government <i>chooses to wait</i> and not invest this cycle, then the infrastructure state remains the same and <b>the budget increases by $2 mil</b>. Typically, <b>no reward is given until the end of the simulation</b>. However, if discounting is being applied, then at each time step, the <b>current budget</b> is given as reward.
+<br>
+<br>
+However, the budget is not the only thing increasing in our simulation. At each 10 year timestep, the sea level rises by a non-deterministic amount. Specifically, it can <b>rise a little (1 cm.), a moderate amount (2 cm.), or a lot (3 cm.)</b> similar to the IPCC sea level rise projection <a href="#fn-2">[2]</a>. A moderate rise in sea level is the most likely at each timestep (50% probability), but there is some probability a less or more extreme rise could occur (25% each). Normally, so long as the current sea level below the current infrastructure level, the city can go about business as usual with no punishment. However, if at any point the current sea level surpasses the current infrastructure, then <b>the city is immediately flooded</b>, the simulation ends, and the city incurs a large negative reward, simulating the cost of the city becoming uninhabitable.
+<br>
+<br>
+The threat of sea level is not equal across coastal cities, however. For example, Tampa Bay, FL also experiences hurricanes regularly, and rising sea levels significantly exacerbate the damage caused by these extreme weather events <a href="#fn-3">[3]</a>. In order to better model cities vulnerable to extreme weather events, we can toggle a boolean <code>disaster</code>. When <code>True</code>, at each time step there is a small possibility that the city is immediately flooded by a natural disaster, which is higher when the sea level is close to the infrastructure level and lower when the sea level is much lower than the infrastructure level. If the city manages to avoid being flooded by the sea until the final year of simulation, then the <b>current budget is given as reward</b> and the simulation is ended. However, if the sea level has overtaken the city's infrastructure in this final year, the city does <b>not</b> receive the reward and receives the same negative reward as before.
+
+<br>
+<br>
+Using this MDP, you will explore explore how the optimal policy changes under different scenarios and reason about the strengths and drawbacks of modeling social decisions with machine learning and search.
+</p>
+
+<ol class="problem">
+
+<li class="writeup" id="5a">
+Imagine you're on L.A.'s city council and you're interested in understanding how sea level rise will impact the city in the coming years. To do so, you will compare 2 simple setups of the <code>SeaLevelRiseMDP</code>: one where the simulation is run for <b>40 years</b> and one where the simulation is run for <b>100 years</b>. We have already implemented functions with the proper parameters to do this with you; all you need to do is run grader test <code>5a-helper</code> to examine the optimal policy for these two MDPs. Note that the only parameter difference between the two MDPs is <b>the number of years to run the simulation for</b>. Looking at only a 40 year time horizon, interpret the MDP's optimal sequence of actions into the most economical plan for the city government to take. What about for a 100 year time horizon? Using your understanding of the MDPs, why do you think the two MDPs recommended these different economic policies?
+<div class="expected">
+A 1-2 sentence indication of what series of action/s are economically preferable for both the 40 year horizon MDP and the 100 year horizon MDP. A 1-2 sentence explanation as to why this would be the case. Note: you do not need to write out a full action sequence for the entire simulation - just a general description of what the most economic policy is will suffice.
+</div>
+
+</li>
+
+<li class="writeup" id="5b">
+<p>
+In addition to the economic reasons for choosing one economic plan over another that you just explored, there are ethical considerations as well.  Consider the following  arguments:
+<ul>
+<li><b>Veil of Ignorance</b>: Imagine that you did not know what year you would be born and therefore what state of climate change you would be experiencing.  The policy you would choose on that basis would be the fairest policy, as it is the one you would subject yourself to if you did not know what decade you would be born. <a href="#fn-4">[4]</a></li>
+  <li><b>Uncertain Future</b>: The future is uncertain. We should not sacrifice present well-being or consumption to ward off a future that might or might not happen. </li>
+<li><b>Precautionary Risks</b>: People have different attitudes towards risk and uncertainty.  Doing nothing now represents a significant risk of degraded living conditions for those who will be alive in the future. Since we do not know the risk-tolerance of future people, we ought to act conservatively on their behalf. <a href="#fn-5">[5]</a></li>
+<li><b>Symmetry of Future Generations</b>: People born today and people born in 50 years are equally morally important and deserving of well-being.  Privileging the well-being of our generation would be arbitrary; instead we should give their interests and ours equal consideration. </li>
+<li><b>Vulnerability of Future Generations</b>: The well-being of people in future generations is completely dependent on the environmental choices we make today, yet they have no say in those choices. There is no morally relevant reason why we get to make those choices for them; we just happened to be born earlier. Thus we should give their interests and ours equal consideration. <a href="#fn-1">[1]</a>
+</li>
+  </ul>
+Using your answer for 5a, what investment policy would you advocate for the L.A. city government to use to decide its economic agenda for the next 50 years? Support your argument using one of the above ethical considerations, or another one with proper definition and citation.
+
+</p>
+<div class="expected">
+2-3 sentences advocating for predicted economic policy, justified with one of the ethical considerations above (or self-defined, with references). Be sure to explicitly state which MDP you chose and reiterate the optimal investment strategy this MDP suggests. Also be sure to explicitly state which ethical argument you are using in your answer for full credit.
+</div>
+
+</li>
+
+<li class="writeup" id="5c">
+<p>
+Not all cities have as consistent weather as L.A. 
+  Imagine instead that you're on the city council for Tampa, Florida - 
+  a city almost as well known for its hurricanes as it is its beaches. 
+  The Tampa city council is making a centennial plan for the city. 
+  Recent climate models indicate that the sea level may rise as much as 200 cm over the next century, with much uncertainty. A friend of yours on L.A city council has recommended using the same MDP from above to help plan your actions. 
+<br>
+<br>  
+  To adapt the MDP for Tampa, 
+  we need to model an increase in devastating weather events like hurricanes in addition to the steady rise of sea level. You will compare 2 similar setups of the <code>SeaLevelRiseMDP</code> where there is a small chance of major disaster every 10 years. 
+  The key difference between these two MDPs is that one <b>discounts future rewards</b> <a href="#fn-6">[6]</a>, 
+  while the other considers rewards from all states equally. We have already implemented functions with the proper parameters to do this with you; 
+  all you need to do is run grader test <code>5c-helper</code> to examine the optimal policy for these two MDPs. 
+  Note that the only parameter difference between the two MDPs is the discount factor. 
+  How much infrastructure should you be considering adding in your centennial plan according to the discounted model? 
+  What about for the non-discounted model? Using your understanding of the MDP, why do you think the two MDPs recommended these actions?
+</p>
+<div class="expected">
+    A 1-2 sentence indication of how much infrastructure additions both the discounted and non-discounted MDPs recommend. A 1-2 sentence explanation as to why the different strategies would be recommended by the two MDPs. Note: you do not need to quantify anything, just simply a general explanation of a policy will do.
+</div>
+
+
+</li>
+
+</li>
+
+
+<li class="writeup" id="5d">
+Finally, remember in question 4d we compared how well (or poorly!) one MDP's optimal policy would transfer to another. If we're no longer quite as good at playing blackjack, that's one thing. However, in  a high-stakes scenario like this, supposedly optimal policies that are in fact suboptimal can have severe consequences that affect the livelihoods and well-being of potentially millions of people. 
+<br>
+<br>
+We will now explore what happens when we mis-estimate the cost of climate change. 
+  Imagine you're still on Tampa's city council. 
+  Recently, the city was hit by a small hurricane which flooded a few parts of the outskirts of the city. 
+  The estimated cost of the flooding was -$10 million. 
+  You decide to run your sea level rise MDP with this as the negative reward and you present the optimal policy to city council, 
+  which decides to use the MDP's policy to set their infrastructure economic agenda for the foreseeable future. 
+  <br>
+    <br>
+  <b>Part 1.) </b>Run <code>5d-helper</code> to output the expected reward of the optimal policy from ValueIteration running the <code>SeaLevelRiseMDP</code> for 100 years with a flooding cost of -$10 million.
+ <br>
+   <br>
+  <b>Part 2.) </b>Now, let's imagine that this flooding cost underestimates the cost of flooding by 2 orders of magnitude (read: a flooding cost of -$10 billion). Next in the output from <code>5d-helper</code>, you'll find the expected reward of the above fixed optimal policy re-run on an MDP with the more realistic flooding cost. 
+  <br>
+    <br>
+  <b>Part 3.) </b>Finally, you will see the list of actions predicted by the optimal policy for the -10 mil. flooding cost MDP and the optimal policy for the -$10,000 mil. flooding cost MDP. 
+    <br>
+      <br>
+
+  Given these findings, what do you advise city council to do in regards to their infrastructure economic agenda?
+
+<div class="expected">
+1-2 sentences discussing whether or not you think the city council should still use the -$10 mil. flooding cost MDP to make infrastructure economic decisions. If you think city council should still use the model, provide justification through either the data from <code>5d-helper</code> or other outside sources. If you think city council should not use the model, suggest an alternate way city council can still safely incorporate the predictions from <code>SeaLevelRiseMDP</code> into their economic decisions.
+</div>
+
+
+</li>
+
+</ol>
+
+<div id="feedback" data-survey-url="https://forms.gle/pVL8xM4UJYRGZwh46"></div>
+
+<p id="fn-1"> [1]
+<a href="https://proceedings.mlr.press/v119/shuvo20a.html">Shuvo et al. A Markov Decision Process Model for Socio-Economic Systems Impacted by Climate Change. ICML. 2020.</a>
+</p>
+<p id="fn-2"> [2]
+<a href="https://sealevel.nasa.gov/data_tools/17">IPCC. IPCC AR6 Sea Level Projection Tool. IPCC 6th Assessment Report. 2021.</a>
+</p>
+
+<p id="fn-3"> [3]
+<a href="https://www.nature.com/articles/s41467-019-11755-z">Marsooli et al. Climate change exacerbates hurricane flood hazards along US Atlantic and Gulf Coasts in spatially varying patterns. Nature Communications. 2019.</a>
+</p>
+<p id="fn-4"> [4]
+<a href="https://onlinelibrary.wiley.com/doi/pdf/10.1111/j.1467-9833.2009.01447.x">Moellendorf et al. Justice and the Assignment of the Intergenerational Costs of Climate Change.</a>
+</p>
+<p id="fn-5"> [5]
+<a href="https://academic.oup.com/monist/article-abstract/102/1/66/5255709">Buchak et al. Weighing the Risks of Climate Change .</a>
+</p>
+<p id="fn-6"> [6]
+<a href="https://grist.org/article/discount-rates-a-boring-thing-you-should-know-about-with-otters/">Discount Rates: a boring thing you should know about.</a>
+</p>
+<p id="fn-7"> [7]
+<a href="https://www.nytimes.com/2018/08/23/climate/social-cost-carbon.html">Trump Put a Low Cost on Carbon Emissions. Here’s Why It Matters.</a>
+</p>
+
+
+
+</body>
